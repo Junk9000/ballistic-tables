@@ -1,0 +1,309 @@
+ <!DOCTYPE html>
+ <html lang="en">
+ <head>
+ 	<meta charset="UTF-8">
+ 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+ 	<title>Тренажёр таблицы превышений</title>
+ 	<style>
+ 		html{
+ 			font-family: sans-serif;
+ 			font-size: 16px;
+ 			padding: 24px;
+ 			min-width: 240px;
+ 		}
+ 		table{
+ 			text-align: right;
+ 			border-collapse: collapse;
+ 			white-space: nowrap;
+ 		}
+ 		td{
+ 			border-top: 1px solid #eee;
+ 		}
+ 		th, td{
+ 			width: 48px;
+ 			padding-right: 12px;
+ 			padding-bottom: 8px;
+ 		}
+ 		th{
+ 			font-size: 12px;
+ 			font-weight: normal;
+ 			color: #999;
+ 		}
+ 		th:first-child,
+ 		td:first-child{
+ 			font-weight: bold;
+ 			text-align: center;
+ 		}
+ 		hr{
+ 			margin-top: 40px;
+ 			margin-bottom: 24px;
+ 			border: none;
+ 			border-top: 1px solid #ccc;
+ 		}
+ 		input{
+ 			width: 120px;
+ 			padding-top: 8px;
+ 			padding-bottom: 8px;
+ 			padding-left: 16px;
+ 			padding-right: 4px;
+ 			border: 1px solid #999;
+ 			border-radius: 8px;
+ 			text-align: center;
+ 			font-size: 24px;
+ 		}
+ 		button{
+ 			font-size: 24px;
+ 			padding-top: 8px;
+ 			padding-bottom: 8px;
+ 			padding-left: 16px;
+ 			padding-right: 16px;
+ 			border: 1px solid #999;
+ 			border-radius: 8px;
+ 			cursor: pointer;
+ 			color: black;
+ 		}
+ 		input + button{
+ 			margin-left: 12px;
+ 		}
+ 		#start_test{
+ 			display: block;
+ 			width: 100%;
+ 			max-width: 480px;
+ 			margin-top: 16px;
+ 		}
+ 		.controls{
+ 			margin-top: 40px;
+ 		}
+ 		.question{
+ 			margin-top: 40px;
+ 			margin-bottom: -24px;
+ 		}
+ 		.answers{
+ 			display: flex;
+ 			flex-wrap: wrap;
+ 			margin-bottom: 8px;
+ 		}
+ 			.answers__item{
+ 				width: 24px;
+ 				height: 8px;
+ 				margin-top: 4px;
+ 				margin-right: 4px;
+ 				border-radius: 2px;
+ 				background: #ddd;
+ 			}
+ 			.answers__item_true{
+ 				background-color: green;
+ 			}
+ 			.answers__item_false{
+ 				background-color: red;
+ 			}
+		#number_questions{
+			text-align: left;
+		}
+		.number_questions{
+			display: inline-block;
+			margin-right: 12px;
+		}
+		.number_questions:before{
+			content: 'Количество вопросов';
+			position: absolute;
+			margin-top: -20px;
+			font-size: 12px;
+			color: #999;
+		}
+ 	</style>
+ </head>
+ <body>
+ 	<h1>Тренажёр таблицы превышений АК-74М</h1>
+
+ 	<div id="canvas"></div>
+
+ 	<script>
+ 		const ak_height_trajectory = 
+ 			[
+ 				[ 'Превышения при стрельбе, см' ],
+ 				[ 'Прицел',	'100 м',	'200 м',	'300 м',	'400 м',	'500 м',	'600 м',	'700 м',	'800 м',	'900 м',	'1000 м',	'1100 м',	'1200 м' ],
+				[ '1',		'0',		'-10',		'',			'',			'',			'',			'',			'',			'',			'',			'',			'' ],
+				[ '2',		'5',		'0',		'-25',		'',			'',			'',			'',			'',			'',			'',			'',			'' ],
+				[ '3',		'13',		'16',		'0',		'-43',		'',			'',			'',			'',			'',			'',			'',			'' ],
+				[ '4',		'24',		'38',		'32',		'0',		'-65',		'',			'',			'',			'',			'',			'',			'' ],
+				[ '5',		'37',		'64',		'71',		'52',		'0',		'-98',		'',			'',			'',			'',			'',			'' ],
+				[ '6',		'54',		'97',		'120',		'120',		'82',		'0',		'-150',		'-370',		'',			'',			'',			'' ],
+				[ '7',		'75',		'140',		'180',		'200',		'190',		'130',		'0',		'-210',		'-520',		'',			'',			'' ],
+				[ '8',		'100',		'190',		'270',		'310',		'320',		'290',		'190',		'0',		'-290',		'-700',		'',			'' ],
+				[ '9',		'140',		'220',		'360',		'440',		'480',		'480',		'410',		'260',		'0',		'-380',		'-890',		'' ],
+				[ '10',		'170',		'330',		'480',		'590',		'670',		'710',		'680',		'560',		'340',		'0',		'-480',		'-1110' ]
+ 			];
+
+ 		const canvas_div = document.querySelector('#canvas');
+ 		const table_cols = ak_height_trajectory[1].length;
+ 		const table_rows = ak_height_trajectory.length;
+
+ 		function create_table()
+ 		{
+	 		let table_temp = ''; // Переменная для генерации таблицы
+
+	 		// Генерация заголовка
+	 		table_temp += ('<h3>' + ak_height_trajectory[0] + '</h3>');
+	 		table_temp += ('<tr>');
+	 		
+	 		for(let i = 0; i < table_cols; i++)
+		 		table_temp += ('<th>' + ak_height_trajectory[1][i] + '</th>');
+
+	 		table_temp += ('</tr>');
+
+	 		// Генерация строк
+	 		for(let i = 2; i < table_rows; i++)
+	 		{
+		 		table_temp += ('<tr>');
+		 		
+		 		for(let j = 0; j < table_cols; j++)
+			 		table_temp += ('<td>' + ak_height_trajectory[i][j] + '</td>');
+
+	 			table_temp += ('</tr>');
+	 		}
+
+		 	// Генерация таблицы
+	 		canvas_div.innerHTML += '<div class="controls">'
+	 								+ '<div class="number_questions"><input id="number_questions" type="number" max="500"></div>'
+	 								+ '<button id="start_test">Начать тест</button>'
+	 								+ '</div>'
+	 								+ '<hr>'
+	 								+ '<table>' + table_temp + '</table>';
+
+	 		const number_questions = document.getElementById("number_questions");
+	 		const start_test = document.getElementById("start_test");
+
+	 		if( localStorage.getItem('answers') != undefined && JSON.parse(localStorage.getItem('answers')).length > 0 )
+	 			number_questions.value = JSON.parse(localStorage.getItem('answers')).length;
+	 		else
+	 			number_questions.value = 10;
+
+			start_test.addEventListener('click', () => {
+				set_coockie();
+				create_question();
+			});
+ 		}
+
+ 		// Генератор задания
+ 		function get_random_cell(cols, rows)
+ 		{
+ 			sight = Math.floor( Math.random() * (rows-2) ) + 2;
+ 			distance = Math.floor( Math.random() * (cols-1) ) + 1;
+
+ 			return(sight, distance);
+ 		}
+
+ 		function get_question()
+ 		{
+ 			let answer = '';
+
+ 			while(answer == '')
+ 			{
+ 				get_random_cell(table_cols, table_rows);
+ 				answer = ak_height_trajectory[sight][distance]; 
+ 			}
+
+ 			return(
+ 				{ sight: sight, distance: distance, answer: answer }
+ 			);
+ 		}
+
+ 		// Генератор куки
+ 		function set_coockie()
+ 		{
+			const number_questions = document.getElementById("number_questions");
+
+			localStorage.clear();
+	 		localStorage.setItem('question_mark', 0);
+
+			if( number_questions.value > 0 )
+		 		localStorage.setItem('answers', JSON.stringify(new Array(parseInt(number_questions.value,10) )));
+		 	else
+		 		localStorage.setItem('answers', JSON.stringify(new Array(10)));
+ 		}
+
+ 		// Графические результаты
+ 		function result_graph(answers)
+ 		{
+ 			let current_answer_class;
+ 			let answers_temp;
+
+ 			answers_temp = ('<div class="answers">')
+ 			for( let i = 0; i < answers.length; i++)
+ 			{
+ 				if( answers[i] == true )
+ 					current_answer_class = 'answers__item_true';
+ 				else if ( answers[i] == false )
+ 					current_answer_class = 'answers__item_false';
+ 				else
+ 					current_answer_class = '';
+
+ 				answers_temp += ('<div class="answers__item ' + current_answer_class + '"></div>')
+ 			}
+ 			answers_temp += ('</div>');
+
+ 			return answers_temp;
+ 		}
+
+ 		// Генератор вопроса
+ 		function create_question()
+ 		{
+ 			let question_temp = '';
+ 			const question = get_question();
+ 			const question_mark = parseInt(localStorage.getItem('question_mark'), 10);
+ 			const answers = JSON.parse(localStorage.getItem('answers'));
+
+ 			question_temp += result_graph(answers);
+
+ 			if( question_mark < answers.length )
+ 			{
+				// console.log(question);
+
+	 			question_temp += 	'<div class="question">'
+	 								+ 'Превышение с прицелом ' + ak_height_trajectory[question.sight][0] 
+	 								+ ' на дальности ' + ak_height_trajectory[1][question.distance] 
+	 								+ '</div>'
+	 								+ '<div class="controls">'
+	 								+ '<input id="answer_input" type="number">'
+	 								+ '<button id="answer_button">Ответить</button>'
+	 								+ '</div>';
+
+	 			canvas_div.innerHTML = question_temp;
+
+	 			const answer_input = document.getElementById("answer_input");
+	 			const answer_button = document.getElementById("answer_button");
+
+	 			answer_input.focus();
+
+				answer_button.addEventListener('click', () => {
+					if( answer_input.value == question.answer )
+						answers[question_mark] = true;
+					else
+						answers[question_mark] = false;
+
+					localStorage.setItem('answers', JSON.stringify(answers));
+					localStorage.setItem('question_mark', question_mark + 1);
+
+					create_question();
+				});
+			}
+			else
+			{
+				const correct_answers = JSON.parse(localStorage.getItem('answers')).filter(Boolean).length;
+
+				canvas_div.innerHTML = 	'<h3>Результат</h3>'
+										+ result_graph(answers)
+										+ correct_answers 
+										+ ' из ' + answers.length 
+										+ ', ' 
+										+ Math.floor( correct_answers * 100 / answers.length ) + '%';
+				create_table();
+			}
+
+ 		}
+
+ 		create_table();
+ 	</script>
+ </body>
+ </html>
