@@ -41,11 +41,11 @@
  			border-top: 1px solid #ccc;
  		}
  		input{
- 			width: 120px;
+ 			width: 80px;
  			padding-top: 8px;
  			padding-bottom: 8px;
  			padding-left: 16px;
- 			padding-right: 4px;
+ 			padding-right: 16px;
  			border: 1px solid #999;
  			border-radius: 8px;
  			text-align: center;
@@ -65,13 +65,16 @@
  		input + button{
  			margin-left: 12px;
  		}
+ 		#timer{
+ 			margin-bottom: 8px;
+ 		}
  		#start_test{
  			display: block;
  			width: 100%;
- 			max-width: 480px;
  			margin-top: 16px;
  		}
  		.controls{
+ 			max-width: 280px;
  			margin-top: 40px;
  		}
  		.question{
@@ -81,6 +84,7 @@
  		.answers{
  			display: flex;
  			flex-wrap: wrap;
+ 			max-width: 480px;
  			margin-bottom: 8px;
  		}
  			.answers__item{
@@ -97,19 +101,44 @@
  			.answers__item_false{
  				background-color: red;
  			}
-		#number_questions{
+ 		.number{
+ 			display: flex;
+ 		}
+		#number_questions,
+		#number_time,
+		#answer_input{
+			width: 100%;
+			box-sizing: border-box;
 			text-align: left;
 		}
-		.number_questions{
-			display: inline-block;
-			margin-right: 12px;
+		#answer_input{
+			text-align: center;
 		}
-		.number_questions:before{
-			content: 'Количество вопросов';
+		.number_questions,
+		.number_time,
+		.answer_input{
+			flex-grow: 1;
+		}
+		.number_questions,
+		.answer_input{
+			margin-right: 4px;
+		}
+		.number_time,
+		#answer_button{
+			margin-left: 4px;
+		}
+		.number_questions:before,
+		.number_time:before{
 			position: absolute;
 			margin-top: -20px;
 			font-size: 12px;
 			color: #999;
+		}
+		.number_questions:before{
+			content: 'Кол-во вопросов';
+		}
+		.number_time:before{
+			content: 'Время на тест, с';
 		}
  	</style>
  </head>
@@ -165,19 +194,28 @@
 
 		 	// Генерация таблицы
 	 		canvas_div.innerHTML += '<div class="controls">'
+	 								+ '<div class="number">'
 	 								+ '<div class="number_questions"><input id="number_questions" type="number" max="500"></div>'
+	 								+ '<div class="number_time"><input id="number_time" type="number" max="500"></div>'
+	 								+ '</div>'
 	 								+ '<button id="start_test">Начать тест</button>'
 	 								+ '</div>'
 	 								+ '<hr>'
 	 								+ '<table>' + table_temp + '</table>';
 
 	 		const number_questions = document.getElementById("number_questions");
+	 		const number_time = document.getElementById("number_time");
 	 		const start_test = document.getElementById("start_test");
 
 	 		if( localStorage.getItem('answers') != undefined && JSON.parse(localStorage.getItem('answers')).length > 0 )
 	 			number_questions.value = JSON.parse(localStorage.getItem('answers')).length;
 	 		else
 	 			number_questions.value = 10;
+
+	 		if( localStorage.getItem('time') != undefined && JSON.parse(localStorage.getItem('time')) > 0 )
+	 			number_time.value = JSON.parse(localStorage.getItem('time'));
+	 		else
+	 			number_time.value = 300;
 
 			start_test.addEventListener('click', () => {
 				set_coockie();
@@ -213,9 +251,11 @@
  		function set_coockie()
  		{
 			const number_questions = document.getElementById("number_questions");
+			const number_time = document.getElementById("number_time");
 
 			localStorage.clear();
 	 		localStorage.setItem('question_mark', 0);
+	 		localStorage.setItem('time', number_time.value);
 
 			if( number_questions.value > 0 )
 		 		localStorage.setItem('answers', JSON.stringify(new Array(parseInt(number_questions.value,10) )));
@@ -246,61 +286,133 @@
  			return answers_temp;
  		}
 
- 		// Генератор вопроса
- 		function create_question()
+ 		// Вывод и приведение времени к виду 1:00
+ 		function time_view(time)
  		{
- 			let question_temp = '';
- 			const question = get_question();
- 			const question_mark = parseInt(localStorage.getItem('question_mark'), 10);
+ 			const timer_canvas = document.getElementById("timer");
+ 			const minutes = Math.floor(time / 60);
+ 			let seconds = (time - minutes * 60);
+
+ 			if ( seconds < 10 )
+ 				seconds = '0' + seconds;
+
+ 			timer_canvas.innerHTML = minutes + ':' + seconds;
+ 		}
+
+ 		// Генератор результата
+ 		function set_result()
+ 		{
+ 			const correct_answers = JSON.parse(localStorage.getItem('answers')).filter(Boolean).length;
  			const answers = JSON.parse(localStorage.getItem('answers'));
 
- 			question_temp += result_graph(answers);
+			canvas_div.innerHTML = 	'<h3>Результат</h3>'
+				+ result_graph(answers)
+				+ correct_answers 
+				+ ' из ' + answers.length 
+				+ ', ' 
+				+ Math.floor( correct_answers * 100 / answers.length ) + '%';
 
- 			if( question_mark < answers.length )
+			create_table();
+ 		}
+
+		// Сборка вопроса
+ 		function create_question()
+ 		{
+ 			canvas_div.innerHTML = '<div id="timer"></div>';
+ 			canvas_div.innerHTML += '<div id="question"></div>';
+
+ 			const questions_canvas = document.getElementById("question");
+ 			let question_temp = '';
+ 			let question = get_question();
+ 			let question_mark = parseInt(localStorage.getItem('question_mark'), 10);
+ 			let time = JSON.parse(localStorage.getItem('time'));
+ 			let answers = JSON.parse(localStorage.getItem('answers'));
+ 			
+ 			time_view(time)
+
+ 			let timer_interval = setInterval(function() 
  			{
+ 				time -= 1;
+
+ 				time_view(time)
+
+	 			if ( time == 0 )
+	 			{
+	 				clearInterval( timer_interval );
+	 				let question_mark = parseInt(localStorage.getItem('question_mark'), 10);
+	 				let answers = JSON.parse(localStorage.getItem('answers'));
+
+	 				for( ; question_mark < answers.length; question_mark++ )
+						answers[question_mark] = false;	 		
+
+					localStorage.setItem('answers', JSON.stringify(answers));	
+					set_result();	
+	 			}
+ 			},
+ 			1000);
+
+	 		// Генератор вопроса
+			function new_question()
+			{
+				question = get_question();
+
+				question_mark = parseInt(localStorage.getItem('question_mark'), 10);
+				answers = JSON.parse(localStorage.getItem('answers'));
+				
 				// console.log(question);
 
-	 			question_temp += 	'<div class="question">'
-	 								+ 'Превышение с прицелом ' + ak_height_trajectory[question.sight][0] 
-	 								+ ' на дальности ' + ak_height_trajectory[1][question.distance] 
-	 								+ '</div>'
-	 								+ '<div class="controls">'
-	 								+ '<input id="answer_input" type="number">'
-	 								+ '<button id="answer_button">Ответить</button>'
-	 								+ '</div>';
+				question_temp = result_graph(answers);
+				question_temp += 	'<div class="question">'
+									+ 'Превышение с прицелом ' + ak_height_trajectory[question.sight][0] 
+									+ ' на дальности ' + ak_height_trajectory[1][question.distance] 
+									+ '</div>'
+									+ '<div class="controls">'
+									+ '<div class="number">'
+									+ '<div class="answer_input"><input id="answer_input" type="number"></div>'
+									+ '<button id="answer_button">Ответить</button>'
+									+ '</div>'
+									+ '</div>';
 
-	 			canvas_div.innerHTML = question_temp;
+				questions_canvas.innerHTML = question_temp;
 
-	 			const answer_input = document.getElementById("answer_input");
-	 			const answer_button = document.getElementById("answer_button");
+				const answer_input = document.getElementById("answer_input");
+				const answer_button = document.getElementById("answer_button");
 
-	 			answer_input.focus();
+				answer_input.focus();
 
-				answer_button.addEventListener('click', () => {
+				function answer_check()
+				{
 					if( answer_input.value == question.answer )
 						answers[question_mark] = true;
 					else
 						answers[question_mark] = false;
 
 					localStorage.setItem('answers', JSON.stringify(answers));
-					localStorage.setItem('question_mark', question_mark + 1);
 
-					create_question();
+					if( question_mark < answers.length - 1 )
+					{
+						localStorage.setItem('question_mark', question_mark + 1);
+						new_question();
+					} 
+					else 
+					{
+						clearInterval(timer_interval);
+						set_result();
+					}
+				}
+
+				answer_button.addEventListener('click', () => {
+					answer_check()
+				});
+
+				answer_input.addEventListener('keydown', (event) => {
+					if (event.keyCode === 13)
+						answer_check()
 				});
 			}
-			else
-			{
-				const correct_answers = JSON.parse(localStorage.getItem('answers')).filter(Boolean).length;
 
-				canvas_div.innerHTML = 	'<h3>Результат</h3>'
-										+ result_graph(answers)
-										+ correct_answers 
-										+ ' из ' + answers.length 
-										+ ', ' 
-										+ Math.floor( correct_answers * 100 / answers.length ) + '%';
-				create_table();
-			}
-
+ 			if( question_mark < answers.length )
+ 				new_question()
  		}
 
  		create_table();
